@@ -20,18 +20,17 @@ jobs:
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Get the PR Info from the previous workflow
+      - name: Get PR Info from environment
         run: |
-          # Fetch the information that was passed via the GITHUB_ENV in the PR Workflow
+          # Read the PR info that was stored in the environment
           PR_TITLE="${{ github.event.workflow_run.head_commit.message }}"
           PR_BODY="${{ github.event.workflow_run.head_commit.body || 'No description provided.' }}"
 
-          # Create a tag based on the PR title
-          TAG_NAME="${PR_TITLE// /_}"  # Replace spaces with underscores for the tag
+          # Generate a valid tag name from PR title (replace spaces with underscores)
+          TAG_NAME="${PR_TITLE// /_}"
+          echo "Tag Name: $TAG_NAME"
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
-
-          echo "Tag created: $TAG_NAME"
 
       - name: Create GitHub Release
         id: create_release
@@ -39,9 +38,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.TAG_NAME }}
-          release_name: "${{ env.TAG_NAME }}"
-          body: |
-            ${{ github.event.workflow_run.head_commit.body || 'No description provided.' }}
+          tag_name: ${{ steps.create_tag_and_release.outputs.tag_name }}
+          release_name: "${{ steps.create_tag_and_release.outputs.tag_name }}"
+          body: "${{ steps.create_tag_and_release.outputs.PR_BODY }}"
           draft: false
           prerelease: false
