@@ -31,38 +31,40 @@ jobs:
 
       - name: Fetch PR Info or Use Manual Inputs
         id: pr_info
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG_NAME="${{ github.event.inputs.tag_name }}"
-            PR_BODY="${{ github.event.inputs.release_body }}"
+          TAG_NAME="${{ github.event.inputs.tag_name }}"
+          PR_BODY="${{ github.event.inputs.release_body }}"
 
-            printf "TAG_NAME=%s\n" "$TAG_NAME" >> $GITHUB_ENV
-            printf "PR_BODY=%s\n" "$PR_BODY" >> $GITHUB_ENV
-          else
-            PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/pulls?state=closed | \
-              jq '[.[] | select(.merged_at != null)] | .[0].number')
+          printf "TAG_NAME=%s\n" "$TAG_NAME" >> $GITHUB_ENV
+          printf "PR_BODY=%s\n" "$PR_BODY" >> $GITHUB_ENV
 
-            if [ -z "$PR_NUMBER" ]; then
-              echo "Error: No PR number found" >&2
-              exit 1
-            fi
+      - name: Fetch PR Info for Workflow Run
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: prs } = await github.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+            });
 
-            PR_TITLE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
-              jq -r '.title')
+            const mergedPr = prs.find(pr => pr.merged_at);
+            if (!mergedPr) {
+              throw new Error("No merged PR found");
+            }
 
-            PR_BODY=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
-              jq -r '.body')
+            core.setOutput('pr_number', mergedPr.number);
+            core.setOutput('pr_title', mergedPr.title);
+            core.setOutput('pr_body', mergedPr.body || "No description provided");
 
-            # Clean up excessive newlines
-            PR_BODY=$(echo "$PR_BODY" | sed -E ':a;N;$!ba;s/\n{2,}/\n/g')
-
-            # Write to environment file using printf to preserve format
-            printf "TAG_NAME=%s\n" "$PR_TITLE" >> $GITHUB_ENV
-            printf "PR_BODY=%s\n" "$PR_BODY" >> $GITHUB_ENV
-          fi
+      - name: Set PR Info from API
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          printf "TAG_NAME=%s\n" "${{ steps.fetch_pr_info.outputs.pr_title }}" >> $GITHUB_ENV
+          printf "PR_BODY=%s\n" "${{ steps.fetch_pr_info.outputs.pr_body }}" >> $GITHUB_ENV
 
       - name: Create and push tag
         run: |
