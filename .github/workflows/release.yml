@@ -9,6 +9,7 @@ on:
 jobs:
   create_tag_and_release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,26 +21,33 @@ jobs:
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Get PR Info from environment
+      - name: Read the PR info from the environment
         run: |
-          # Read the PR info that was stored in the environment
+          # Simulate reading PR title and body from environment variables set in the previous job
           PR_TITLE="${{ github.event.workflow_run.head_commit.message }}"
           PR_BODY="${{ github.event.workflow_run.head_commit.body || 'No description provided.' }}"
 
           # Generate a valid tag name from PR title (replace spaces with underscores)
           TAG_NAME="${PR_TITLE// /_}"
           echo "Tag Name: $TAG_NAME"
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
+          echo "PR_BODY: $PR_BODY"
+
+          # Store TAG_NAME and PR_BODY into environment to use in later steps
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+          echo "PR_BODY=${PR_BODY}" >> $GITHUB_ENV
+
+      - name: Create and push tag
+        run: |
+          git tag "${{ env.TAG_NAME }}"
+          git push origin "${{ env.TAG_NAME }}"
 
       - name: Create GitHub Release
-        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.create_tag_and_release.outputs.tag_name }}
-          release_name: "${{ steps.create_tag_and_release.outputs.tag_name }}"
-          body: "${{ steps.create_tag_and_release.outputs.PR_BODY }}"
+          tag_name: ${{ env.TAG_NAME }}
+          release_name: "${{ env.TAG_NAME }}"
+          body: "${{ env.PR_BODY }}"
           draft: false
           prerelease: false
