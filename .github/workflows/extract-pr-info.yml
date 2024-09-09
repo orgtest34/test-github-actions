@@ -6,34 +6,13 @@ on:
       - closed
 
 jobs:
-  extract-pr-info:
+  Extract-pr-info:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Extract PR Info
-        id: pr_info
-        run: |
-          # Extract the PR title and description
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_BODY="${{ github.event.pull_request.body || 'No description provided.' }}"
-
-          # Escape newlines in PR_BODY
-          PR_BODY_ESCAPED=$(echo "${PR_BODY}" | sed ':a;N;$!ba;s/\n/\\n/g')
-
-          # Write PR_TITLE to the environment
-          echo "PR_TITLE=${PR_TITLE}" >> $GITHUB_ENV
-
-          # Write the escaped PR_BODY to the environment
-          echo "PR_BODY=${PR_BODY_ESCAPED}" >> $GITHUB_ENV
-
-      - name: Log PR Info
-        run: |
-          echo "PR_TITLE: ${{ env.PR_TITLE }}"
-          echo "PR_BODY: ${{ env.PR_BODY }}"
 
       - name: Trigger tag creation in the base repo
         run: |
