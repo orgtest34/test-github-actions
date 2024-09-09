@@ -6,7 +6,7 @@ on:
       - closed
 
 jobs:
-  Extract-pr-info:
+  extract-pr-info:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
@@ -21,10 +21,13 @@ jobs:
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_BODY="${{ github.event.pull_request.body || 'No description provided.' }}"
 
+          # Escape newlines in PR_BODY
           PR_BODY_ESCAPED=$(echo "${PR_BODY}" | sed ':a;N;$!ba;s/\n/\\n/g')
 
+          # Write PR_TITLE to the environment
           echo "PR_TITLE=${PR_TITLE}" >> $GITHUB_ENV
 
+          # Write the escaped PR_BODY to the environment
           echo "PR_BODY=${PR_BODY_ESCAPED}" >> $GITHUB_ENV
 
       - name: Log PR Info
