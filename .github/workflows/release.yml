@@ -65,6 +65,14 @@ jobs:
           # Store the tag name to use in the next step
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
 
+      - name: Create spectrocoin.zip
+        run: |
+          mkdir spectrocoin-accepting-bitcoin  # Create the folder inside the working directory
+          # Copy only the necessary files and exclude the folder and unwanted files
+          find . -maxdepth 1 ! -name 'spectrocoin-accepting-bitcoin' ! -name '.' ! -name '.git' ! -name '.github' ! -name 'README.txt' ! -name 'README.md' ! -name 'changelog.md' ! -name '.gitignore' -exec cp -r {} spectrocoin-accepting-bitcoin/ \;
+          zip -r spectrocoin.zip spectrocoin-accepting-bitcoin  # Zip the folder
+        shell: bash
+
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
@@ -75,3 +83,13 @@ jobs:
           body: "${{ env.PR_BODY }}"
           draft: false
           prerelease: false
+
+      - name: Upload spectrocoin.zip as release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: spectrocoin.zip
+          asset_name: spectrocoin.zip
+          asset_content_type: application/zip
