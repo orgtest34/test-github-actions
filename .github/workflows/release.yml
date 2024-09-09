@@ -38,7 +38,11 @@ jobs:
             PR_BODY="${{ github.event.inputs.release_body }}"
 
             echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
-            echo "PR_BODY=${PR_BODY}" >> $GITHUB_ENV
+
+            # Write the multi-line PR_BODY into GITHUB_ENV using Heredoc
+            cat <<EOF >> $GITHUB_ENV
+            PR_BODY=${PR_BODY}
+            EOF
           else
             # Fetch the latest merged PR number
             PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -55,7 +59,11 @@ jobs:
               jq -r '.body')
 
             echo "TAG_NAME=${PR_TITLE}" >> $GITHUB_ENV
-            echo "PR_BODY=${PR_BODY}" >> $GITHUB_ENV
+
+            # Write the multi-line PR_BODY into GITHUB_ENV using Heredoc
+            cat <<EOF >> $GITHUB_ENV
+            PR_BODY=${PR_BODY}
+            EOF
           fi
 
       - name: Create and push tag
