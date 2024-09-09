@@ -1,4 +1,4 @@
-name: PR Workflow
+name: Launch release.yml after closed PR
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
       - closed
 
 jobs:
-  Extract-pr-info:
+  Launch_tag_creation_workflow:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 

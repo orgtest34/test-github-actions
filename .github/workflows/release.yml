@@ -1,18 +1,11 @@
-name: Create Tag on PR Merge or Manual Dispatch
+name: Create tag and release
 
 on:
   workflow_run:
     workflows: ["PR Workflow"]
     types:
       - completed
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: "Tag name (will be used if manually triggered)"
-        required: true
-      release_body:
-        description: "Release description (will be used if manually triggered)"
-        required: true
+  workflow_dispatch: # Manual trigger (no need for inputs)
 
 jobs:
   create_tag_and_release:
@@ -32,22 +25,25 @@ jobs:
       - name: Install GitHub CLI
         run: sudo apt-get install gh
 
-      - name: Fetch PR Info or Use Manual Inputs
+      - name: Fetch Latest PR Info and Check for Existing Tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG_NAME="${{ github.event.inputs.tag_name }}"
-            PR_BODY="${{ github.event.inputs.release_body }}"
-          else
-            # Fetch the latest merged PR title and body using GitHub CLI
-            PR_TITLE=$(gh pr list --state merged --limit 1 --json title --jq '.[0].title')
-            PR_BODY=$(gh pr list --state merged --limit 1 --json body --jq '.[0].body')
-            TAG_NAME="$PR_TITLE"
+          # Fetch the latest merged PR title and body using GitHub CLI
+          PR_TITLE=$(gh pr list --state merged --limit 1 --json title --jq '.[0].title')
+          PR_BODY=$(gh pr list --state merged --limit 1 --json body --jq '.[0].body')
+          TAG_NAME=$(echo "$PR_TITLE" | sed 's/ /_/g') # Replace spaces with underscores in the tag name for consistency
+
+          # Check if the tag already exists
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag '$TAG_NAME' already exists. Exiting workflow."
+            exit 0 # Terminate the workflow if the tag exists
           fi
 
-          # Replace spaces with underscores in the tag name for consistency
-          TAG_NAME=$(echo "$TAG_NAME" | sed 's/ /_/g')
+          # Print the fetched data (for debugging)
+          echo "PR_TITLE: $PR_TITLE"
+          echo "PR_BODY: $PR_BODY"
+          echo "TAG_NAME: $TAG_NAME"
 
           # Create the tag
           git tag "$TAG_NAME"
