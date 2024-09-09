@@ -29,43 +29,29 @@ jobs:
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
 
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh
+
       - name: Fetch PR Info or Use Manual Inputs
         id: pr_info
-        if: github.event_name == 'workflow_dispatch'
         run: |
-          TAG_NAME="${{ github.event.inputs.tag_name }}"
-          PR_BODY="${{ github.event.inputs.release_body }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ github.event.inputs.tag_name }}"
+            PR_BODY="${{ github.event.inputs.release_body }}"
+          else
+            # Fetch the latest merged PR title and body using GitHub CLI
+            PR_TITLE=$(gh pr list --state merged --limit 1 --json title --jq '.[0].title')
+            PR_BODY=$(gh pr list --state merged --limit 1 --json body --jq '.[0].body')
+            TAG_NAME="$PR_TITLE"
+          fi
 
+          # Print the fetched data (for debugging)
+          echo "PR_TITLE: $PR_TITLE"
+          echo "PR_BODY: $PR_BODY"
+
+          # Write the environment variables
           printf "TAG_NAME=%s\n" "$TAG_NAME" >> $GITHUB_ENV
           printf "PR_BODY=%s\n" "$PR_BODY" >> $GITHUB_ENV
-
-      - name: Fetch PR Info for Workflow Run
-        if: github.event_name != 'workflow_dispatch'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { data: prs } = await octokit.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'closed',
-              per_page: 10
-            });
-
-            const mergedPr = prs.find(pr => pr.merged_at);
-            if (!mergedPr) {
-              throw new Error("No merged PR found");
-            }
-
-            core.setOutput('pr_number', mergedPr.number);
-            core.setOutput('pr_title', mergedPr.title);
-            core.setOutput('pr_body', mergedPr.body || "No description provided");
-
-      - name: Set PR Info from API
-        if: github.event_name != 'workflow_dispatch'
-        run: |
-          printf "TAG_NAME=%s\n" "${{ steps.fetch_pr_info.outputs.pr_title }}" >> $GITHUB_ENV
-          printf "PR_BODY=%s\n" "${{ steps.fetch_pr_info.outputs.pr_body }}" >> $GITHUB_ENV
 
       - name: Create and push tag
         run: |
