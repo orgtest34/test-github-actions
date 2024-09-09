@@ -17,9 +17,22 @@ jobs:
       - name: Extract PR Info
         id: pr_info
         run: |
-          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-          echo "PR_BODY=${{ github.event.pull_request.body || 'No description provided.' }}" >> $GITHUB_ENV
+          # Extract the PR title and description
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_BODY="${{ github.event.pull_request.body || 'No description provided.' }}"
 
-      - name: Trigger Tag Creation Workflow
+          echo "PR_TITLE=${PR_TITLE}" >> $GITHUB_ENV
+
+          # Use 'cat <<EOF' to handle multi-line PR body
+          cat <<EOF >> $GITHUB_ENV
+          PR_BODY=${PR_BODY}
+          EOF
+
+      - name: Log PR Info
         run: |
-          echo "Triggering tag creation for merged PR."
+          echo "PR_TITLE: ${{ env.PR_TITLE }}"
+          echo "PR_BODY: ${{ env.PR_BODY }}"
+
+      - name: Trigger tag creation in the base repo
+        run: |
+          echo "Triggering the tag creation workflow in the base repository."
