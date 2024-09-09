@@ -29,13 +29,19 @@ jobs:
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Fetch PR Info from GitHub API
+      - name: Fetch PR Info or Use Manual Inputs
         id: pr_info
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             # If manually triggered, use the provided input for the tag name and release body
-            echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
-            echo "PR_BODY=${{ github.event.inputs.release_body }}" >> $GITHUB_ENV
+            TAG_NAME="${{ github.event.inputs.tag_name }}"
+            PR_BODY="${{ github.event.inputs.release_body }}"
+
+            # Escape newlines in PR_BODY
+            PR_BODY_ESCAPED=$(echo "$PR_BODY" | sed ':a;N;$!ba;s/\n/\\n/g')
+
+            echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+            echo "PR_BODY=${PR_BODY_ESCAPED}" >> $GITHUB_ENV
           else
             # Fetch the latest merged PR number
             PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -51,12 +57,11 @@ jobs:
               https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
               jq -r '.body')
 
-            echo "PR_TITLE=${PR_TITLE}"
-            echo "PR_BODY=${PR_BODY}"
+            # Escape newlines in PR_BODY
+            PR_BODY_ESCAPED=$(echo "$PR_BODY" | sed ':a;N;$!ba;s/\n/\\n/g')
 
-            # Store PR_TITLE and PR_BODY into environment variables for later use
             echo "TAG_NAME=${PR_TITLE}" >> $GITHUB_ENV
-            echo "PR_BODY=${PR_BODY}" >> $GITHUB_ENV
+            echo "PR_BODY=${PR_BODY_ESCAPED}" >> $GITHUB_ENV
           fi
 
       - name: Create and push tag
