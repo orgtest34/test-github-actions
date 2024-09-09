@@ -58,7 +58,15 @@ jobs:
           git push origin "$TAG_NAME"
 
           # Create a release using GitHub CLI with the tag name and PR body
-          gh release create "$TAG_NAME" --title "$PR_TITLE" --notes "$PR_BODY"
+          gh release create "$TAG_NAME" --title "$PR_TITLE" --notes "$PR_BODY" > release_output.txt
+
+          # Extract the release URL and upload URL
+          RELEASE_URL=$(cat release_output.txt | grep -oP 'https://github.com/[^ ]+')
+          echo "Release URL: $RELEASE_URL"
+          UPLOAD_URL=$(gh release view "$TAG_NAME" --json uploadUrl --jq '.uploadUrl')
+
+          # Store the upload URL in an environment variable
+          echo "UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
 
       - name: Create spectrocoin.zip
         run: |
@@ -73,7 +81,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ env.UPLOAD_URL }}
           asset_path: spectrocoin.zip
           asset_name: spectrocoin.zip
           asset_content_type: application/zip
