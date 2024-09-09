@@ -30,7 +30,7 @@ jobs:
         id: create_tag
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # If manually triggered, use an input for the tag (or you can default to a specific tag)
+            # If manually triggered, use an input for the tag (or you can default to a specific tag) 
             # TEMPORARY TEST
             TAG_NAME="test-1.5.1"
             # TAG_NAME="${{ github.event.inputs.tag_name }}"
