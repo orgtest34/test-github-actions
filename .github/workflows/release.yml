@@ -1,20 +1,14 @@
-name: Create Release on PR Merge
+name: Create Tag on PR Merge
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: ["PR Workflow"]
     types:
-      - closed
-
-  workflow_dispatch:
-
-permissions:
-  contents: write
+      - completed
 
 jobs:
-  release:
-    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+  create_tag_and_release:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,27 +20,18 @@ jobs:
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Get PR Title or Manual Tag Input
-        id: create_tag
+      - name: Get the PR Info from the previous workflow
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # If manually triggered, use an input for the tag (or you can default to a specific tag) 
-            # TEMPORARY TEST
-            TAG_NAME="test-1.5.1"
-            # TAG_NAME="${{ github.event.inputs.tag_name }}"
-          else
-            # Get the pull request title if automatically triggered by PR merge
-            TAG_NAME="${{ github.event.pull_request.title }}"
-          fi
+          # Fetch the information that was passed via the GITHUB_ENV in the PR Workflow
+          PR_TITLE="${{ github.event.workflow_run.head_commit.message }}"
+          PR_BODY="${{ github.event.workflow_run.head_commit.body || 'No description provided.' }}"
 
-          echo "Using tag name: $TAG_NAME"
-
-          # Create the tag
+          # Create a tag based on the PR title
+          TAG_NAME="${PR_TITLE// /_}"  # Replace spaces with underscores for the tag
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
 
-          # Store the tag in the environment
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "Tag created: $TAG_NAME"
 
       - name: Create GitHub Release
         id: create_release
@@ -57,24 +42,6 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           release_name: "${{ env.TAG_NAME }}"
           body: |
-            ${{ github.event.pull_request.body || 'Manual release' }}
+            ${{ github.event.workflow_run.head_commit.body || 'No description provided.' }}
           draft: false
           prerelease: false
-
-      - name: Create spectrocoin.zip
-        run: |
-          mkdir spectrocoin-accepting-bitcoin  # Create the folder inside the working directory
-          # Copy only the necessary files and exclude the folder and unwanted files
-          find . -maxdepth 1 ! -name 'spectrocoin-accepting-bitcoin' ! -name '.' ! -name '.git' ! -name '.github' ! -name 'README.txt' ! -name 'README.md' ! -name 'changelog.md' ! -name '.gitignore' -exec cp -r {} spectrocoin-accepting-bitcoin/ \;
-          zip -r spectrocoin.zip spectrocoin-accepting-bitcoin  # Zip the folder
-        shell: bash
-
-      - name: Upload spectrocoin.zip as release asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: spectrocoin.zip
-          asset_name: spectrocoin.zip
-          asset_content_type: application/zip

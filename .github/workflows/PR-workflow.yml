@@ -1,0 +1,25 @@
+name: PR Workflow
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  check-pr:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract PR Info
+        id: pr_info
+        run: |
+          echo "PR_TITLE=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          echo "PR_BODY=${{ github.event.pull_request.body || 'No description provided.' }}" >> $GITHUB_ENV
+
+      - name: Trigger Tag Creation Workflow
+        run: |
+          echo "Triggering tag creation for merged PR."
