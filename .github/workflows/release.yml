@@ -2,10 +2,10 @@ name: Create tag and release
 
 on:
   workflow_run:
-    workflows: ["PR Workflow"]
+    workflows: ["Launch release.yml after closed PR"]
     types:
       - completed
-  workflow_dispatch: # Manual trigger (no need for inputs)
+  workflow_dispatch:
 
 jobs:
   create_tag_and_release:
@@ -50,14 +50,16 @@ jobs:
           git push origin "$TAG_NAME"
 
           # Create a release using GitHub CLI with the tag name and PR body
-          gh release create "$TAG_NAME" --title "$PR_TITLE" --notes "$PR_BODY" > release_output.txt
+          RELEASE_OUTPUT=$(gh release create "$TAG_NAME" --title "$PR_TITLE" --notes "$PR_BODY")
 
           # Extract the release URL and upload URL
-          RELEASE_URL=$(cat release_output.txt | grep -oP 'https://github.com/[^ ]+')
+          RELEASE_URL=$(echo "$RELEASE_OUTPUT" | grep -oP 'https://github.com/[^ ]+/releases/tag/[^ ]+')
           echo "Release URL: $RELEASE_URL"
-          UPLOAD_URL=$(gh release view "$TAG_NAME" --json uploadUrl --jq '.uploadUrl')
 
-          # Store the upload URL in an environment variable
+          UPLOAD_URL=$(gh release view "$TAG_NAME" --json uploadUrl --jq '.uploadUrl')
+          echo "UPLOAD_URL: $UPLOAD_URL"
+
+          # Store the upload URL in an environment variable for the next step
           echo "UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
 
       - name: Create spectrocoin.zip
