@@ -24,25 +24,36 @@ jobs:
       - name: Fetch PR Info from GitHub API
         id: pr_info
         run: |
-          # Fetch PR details using GitHub CLI
-          PR_NUMBER=$(gh pr list --state merged --limit 1 --json number --jq '.[0].number')
-          PR_TITLE=$(gh pr view $PR_NUMBER --json title --jq '.title')
-          PR_BODY=$(gh pr view $PR_NUMBER --json body --jq '.body')
+          # Fetch the latest merged PR number
+          PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/pulls?state=closed | \
+            jq '[.[] | select(.merged_at != null)] | .[0].number')
 
-          echo "PR_NUMBER=${PR_NUMBER}" >> $GITHUB_ENV
+          # Fetch the PR title and body using the PR number
+          PR_TITLE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
+            jq -r '.title')
+
+          PR_BODY=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
+            jq -r '.body')
+
+          # Log the PR info
+          echo "PR_NUMBER=${PR_NUMBER}"
+          echo "PR_TITLE=${PR_TITLE}"
+          echo "PR_BODY=${PR_BODY}"
+
+          # Store PR_TITLE and PR_BODY into environment variables for later use
           echo "PR_TITLE=${PR_TITLE}" >> $GITHUB_ENV
           echo "PR_BODY=${PR_BODY}" >> $GITHUB_ENV
 
-      - name: Log PR Info
-        run: |
-          echo "PR_NUMBER: ${{ env.PR_NUMBER }}"
-          echo "PR_TITLE: ${{ env.PR_TITLE }}"
-          echo "PR_BODY: ${{ env.PR_BODY }}"
-
       - name: Create and push tag
         run: |
-          # Generate a valid tag name from the PR title (replace spaces with underscores)
-          TAG_NAME="${{ env.PR_TITLE// /_ }}"
+          # Replace spaces with underscores in PR title for the tag name
+          TAG_NAME="${{ env.PR_TITLE }}"
+          TAG_NAME=$(echo "$TAG_NAME" | sed 's/ /_/g')
+
+          # Create and push the tag
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
 
