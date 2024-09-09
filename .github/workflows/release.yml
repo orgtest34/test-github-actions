@@ -1,10 +1,18 @@
-name: Create Tag on PR Merge
+name: Create Tag on PR Merge or Manual Dispatch
 
 on:
   workflow_run:
     workflows: ["PR Workflow"]
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name (will be used if manually triggered)"
+        required: true
+      release_body:
+        description: "Release description (will be used if manually triggered)"
+        required: true
 
 jobs:
   create_tag_and_release:
@@ -24,35 +32,37 @@ jobs:
       - name: Fetch PR Info from GitHub API
         id: pr_info
         run: |
-          # Fetch the latest merged PR number
-          PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/pulls?state=closed | \
-            jq '[.[] | select(.merged_at != null)] | .[0].number')
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # If manually triggered, use the provided input for the tag name and release body
+            echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+            echo "PR_BODY=${{ github.event.inputs.release_body }}" >> $GITHUB_ENV
+          else
+            # Fetch the latest merged PR number
+            PR_NUMBER=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/${{ github.repository }}/pulls?state=closed | \
+              jq '[.[] | select(.merged_at != null)] | .[0].number')
 
-          # Fetch the PR title and body using the PR number
-          PR_TITLE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
-            jq -r '.title')
+            # Fetch the PR title and body using the PR number
+            PR_TITLE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
+              jq -r '.title')
 
-          PR_BODY=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
-            jq -r '.body')
+            PR_BODY=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | \
+              jq -r '.body')
 
-          # Log the PR info
-          echo "PR_NUMBER=${PR_NUMBER}"
-          echo "PR_TITLE=${PR_TITLE}"
-          echo "PR_BODY=${PR_BODY}"
+            echo "PR_TITLE=${PR_TITLE}"
+            echo "PR_BODY=${PR_BODY}"
 
-          # Store PR_TITLE and PR_BODY into environment variables for later use
-          echo "PR_TITLE=${PR_TITLE}" >> $GITHUB_ENV
-
-          # Escape newlines in PR_BODY before writing it to the environment
-          echo "PR_BODY=$(echo "$PR_BODY" | sed ':a;N;$!ba;s/\n/\\n/g')" >> $GITHUB_ENV
+            # Store PR_TITLE and PR_BODY into environment variables for later use
+            echo "TAG_NAME=${PR_TITLE}" >> $GITHUB_ENV
+            echo "PR_BODY=${PR_BODY}" >> $GITHUB_ENV
+          fi
 
       - name: Create and push tag
         run: |
-          # Replace spaces with underscores in PR title for the tag name
-          TAG_NAME="${{ env.PR_TITLE }}"
+          # Replace spaces with underscores in the tag name
+          TAG_NAME="${{ env.TAG_NAME }}"
           TAG_NAME=$(echo "$TAG_NAME" | sed 's/ /_/g')
 
           # Create and push the tag
