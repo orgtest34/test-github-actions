@@ -46,10 +46,6 @@ jobs:
             TAG_NAME="$PR_TITLE"
           fi
 
-          # Print the fetched data (for debugging)
-          echo "PR_TITLE: $PR_TITLE"
-          echo "PR_BODY: $PR_BODY"
-
           # Replace spaces with underscores in the tag name for consistency
           TAG_NAME=$(echo "$TAG_NAME" | sed 's/ /_/g')
 
